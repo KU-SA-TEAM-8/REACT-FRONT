@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import axios from "axios";
+import { apiClient } from "../utils/apiClient";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  register: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,12 +54,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, message: "비밀번호는 4자 이상이어야 합니다." };
       }
 
-      // API 호출
-      const response = await axios.post("/api/v1/auth/signup", {
+      // 서버로 회원가입 데이터 전송
+      const requestData = {
         name: name.trim(),
         email: email.trim(),
         password: password,
+      };
+
+      console.log("서버로 전송하는 회원가입 데이터:", {
+        ...requestData,
+        password: "***", // 보안을 위해 비밀번호는 로그에 표시하지 않음
       });
+
+      const response = await apiClient.post("/api/v1/auth/signup", requestData);
+
+      console.log("서버 응답:", response.status, response.data);
 
       if (response.status === 201) {
         // LocalStorage에도 저장 (기존 로직 유지)
@@ -88,7 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       // API 호출
-      const response = await axios.post("/api/v1/auth/login", {
+      const response = await apiClient.post("/api/v1/auth/login", {
         email: email.trim(),
         password: password,
       });
@@ -116,7 +130,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("accessToken");
   };
 
-  return <AuthContext.Provider value={{ isAuthenticated, login, logout, register }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, register }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

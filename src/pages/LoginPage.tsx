@@ -90,7 +90,9 @@ const LoginPage = () => {
           />
         </div>
 
-        {error && <div style={{ color: "#f44336", marginBottom: "15px", fontSize: "0.9rem" }}>{error}</div>}
+        {error && (
+          <div style={{ color: "#f44336", marginBottom: "15px", fontSize: "0.9rem" }}>{error}</div>
+        )}
 
         <div className="button-group">
           <button type="submit" className="button button-primary">
@@ -158,11 +160,15 @@ const LoginPage = () => {
               </div>
 
               {registerError && (
-                <div style={{ color: "#f44336", marginBottom: "15px", fontSize: "0.9rem" }}>{registerError}</div>
+                <div style={{ color: "#f44336", marginBottom: "15px", fontSize: "0.9rem" }}>
+                  {registerError}
+                </div>
               )}
 
               {registerSuccess && (
-                <div style={{ color: "#4CAF50", marginBottom: "15px", fontSize: "0.9rem" }}>{registerSuccess}</div>
+                <div style={{ color: "#4CAF50", marginBottom: "15px", fontSize: "0.9rem" }}>
+                  {registerSuccess}
+                </div>
               )}
 
               <div className="button-group">
