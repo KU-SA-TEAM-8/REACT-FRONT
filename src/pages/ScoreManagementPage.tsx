@@ -1,156 +1,148 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useScoreboard } from '../contexts/ScoreboardContext';
-import '../App.css';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useScoreboard } from "../contexts/ScoreboardContext";
+import "../App.css";
+import { CompetitionDetail } from "../types";
+
+interface TeamData {
+  id: string;
+  delta: number;
+  reason: string;
+}
 
 const ScoreManagementPage = () => {
-  const { adminId } = useParams<{ adminId: string }>();
+  const location = useLocation();
+  const { publicId, compId, name } = location.state || {};
   const navigate = useNavigate();
-  const { scoreboards, updateParticipantScore, getScoreboard } = useScoreboard();
-  const [scoreboard, setScoreboard] = useState(
-    scoreboards.find((sb) => sb.adminId === adminId)
-  );
-  const [historyInputs, setHistoryInputs] = useState<{ [key: string]: string }>({});
+  const { fetchCompetition, patchScore } = useScoreboard();
+  const [compData, setCompData] = useState<CompetitionDetail>();
+  const [inputs, setInputs] = useState<TeamData[]>([]);
 
   useEffect(() => {
-    const sb = scoreboards.find((sb) => sb.adminId === adminId);
-    setScoreboard(sb);
-  }, [scoreboards, adminId]);
-
-  if (!scoreboard) {
-    return (
-      <div className="container">
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          점수판을 찾을 수 없습니다.
-        </div>
-      </div>
-    );
-  }
-
-  const handleScoreChange = (participantId: string, delta: number) => {
-    updateParticipantScore(scoreboard.id, participantId, delta);
-  };
-
-  const handleHistorySubmit = (participantId: string) => {
-    const history = historyInputs[participantId]?.trim();
-    if (history) {
-      updateParticipantScore(scoreboard.id, participantId, 0, history);
-      setHistoryInputs({ ...historyInputs, [participantId]: '' });
+    if (compData) {
+      const arr = compData.teams.map((team) => ({
+        id: team.teamId,
+        delta: 0,
+        reason: "",
+      }));
+      setInputs(arr);
     }
+  }, [compData]);
+
+  const handleScoreSubmit = async (teamId: string) => {
+    const target = inputs.find((item) => item.id === teamId);
+    if (!target) return;
+    const data = {
+      delta: target.delta,
+      reason: target.reason,
+      eventType: "NORMAL",
+      policyType: "INCREASE",
+    };
+    await patchScore(compId, teamId, data);
+    const response = await fetchCompetition(publicId);
+    setCompData(response);
+    setInputs((prev) => prev.map((item) => (item.id === teamId ? { ...item, reason: "" } : item)));
   };
 
-  const copyAdminId = () => {
-    navigator.clipboard.writeText(scoreboard.adminId);
-    alert('관리 ID가 클립보드에 복사되었습니다.');
-  };
-
-  const sortedParticipants = [...scoreboard.participants].sort((a, b) => b.score - a.score);
+  useEffect(() => {
+    const getData = async () => {
+      const response = await fetchCompetition(publicId);
+      setCompData(response);
+    };
+    getData();
+  }, []);
 
   return (
     <div className="container">
-      <h1 className="page-title">{scoreboard.name} - 점수 관리</h1>
+      <div style={{ cursor: "pointer" }} onClick={() => navigate(-1)}>
+        이전으로
+      </div>
+      <h1 className="page-title">{name} - 점수 관리</h1>
 
-      <div style={{ marginBottom: '30px' }}>
-        {sortedParticipants.map((participant) => (
-          <div key={participant.id} className="card" style={{ cursor: 'default' }}>
-            <div style={{ marginBottom: '15px' }}>
-              <h3 style={{ marginBottom: '10px', color: '#333' }}>{participant.name}</h3>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2196F3', marginBottom: '10px' }}>
-                점수: {participant.score}
+      <div style={{ marginBottom: "30px" }}>
+        {compData?.teams.map((participant) => (
+          <div key={participant.teamId} className="card" style={{ cursor: "default" }}>
+            <div style={{ marginBottom: "15px" }}>
+              <h3 style={{ marginBottom: "10px", color: "#333" }}>{participant.teamName}</h3>
+              <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#2196F3", marginBottom: "10px" }}>
+                점수: {participant.scoreValue}
               </div>
+              <>{inputs.find((input) => input.id === participant.teamId)?.delta}</>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap" }}>
               <button
                 className="button button-primary"
-                onClick={() => handleScoreChange(participant.id, 1)}
-                style={{ padding: '8px 16px' }}
+                onClick={() => {
+                  setInputs((prev) =>
+                    prev.map((item) => (item.id === participant.teamId ? { ...item, delta: item.delta + 1 } : item))
+                  );
+                }}
+                style={{ padding: "8px 16px" }}
               >
                 +1
               </button>
               <button
-                className="button button-primary"
-                onClick={() => handleScoreChange(participant.id, 5)}
-                style={{ padding: '8px 16px' }}
-              >
-                +5
-              </button>
-              <button
-                className="button button-primary"
-                onClick={() => handleScoreChange(participant.id, 10)}
-                style={{ padding: '8px 16px' }}
-              >
-                +10
-              </button>
-              <button
                 className="button button-danger"
-                onClick={() => handleScoreChange(participant.id, -1)}
-                style={{ padding: '8px 16px' }}
+                onClick={() => {
+                  setInputs((prev) =>
+                    prev.map((item) => (item.id === participant.teamId ? { ...item, delta: item.delta - 1 } : item))
+                  );
+                }}
+                style={{ padding: "8px 16px" }}
               >
                 -1
               </button>
-              <button
-                className="button button-danger"
-                onClick={() => handleScoreChange(participant.id, -5)}
-                style={{ padding: '8px 16px' }}
-              >
-                -5
-              </button>
             </div>
 
-            <div style={{ marginBottom: '10px' }}>
+            <div style={{ marginBottom: "10px" }}>
               <input
                 type="text"
                 className="input"
                 placeholder="점수 히스토리 입력"
-                value={historyInputs[participant.id] || ''}
-                onChange={(e) =>
-                  setHistoryInputs({ ...historyInputs, [participant.id]: e.target.value })
-                }
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleHistorySubmit(participant.id);
-                  }
+                value={inputs.find((val) => val.id === participant.teamId)?.reason ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setInputs((prev) =>
+                    prev.map((item) => (item.id === participant.teamId ? { ...item, reason: value } : item))
+                  );
                 }}
-                style={{ marginBottom: '8px' }}
               />
               <button
                 className="button button-secondary"
-                onClick={() => handleHistorySubmit(participant.id)}
-                style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                onClick={() => handleScoreSubmit(participant.teamId)}
+                style={{ padding: "6px 12px", fontSize: "0.9rem", marginTop: "10px" }}
               >
-                히스토리 추가
+                점수 변경
               </button>
             </div>
 
-            {participant.history.length > 0 && (
-              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
-                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>히스토리:</div>
-                <div style={{ fontSize: '0.85rem', color: '#888' }}>
+            {/* {participant.history.length > 0 && (
+              <div style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid #eee" }}>
+                <div style={{ fontSize: "0.9rem", color: "#666", marginBottom: "8px" }}>히스토리:</div>
+                <div style={{ fontSize: "0.85rem", color: "#888" }}>
                   {participant.history.slice(-5).map((h, idx) => (
-                    <div key={idx} style={{ marginBottom: '4px' }}>{h}</div>
+                    <div key={idx} style={{ marginBottom: "4px" }}>
+                      {h}
+                    </div>
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="button button-secondary" onClick={copyAdminId}>
+      <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+        {/* <button className="button button-secondary" onClick={copyAdminId}>
           관리ID 공유
-        </button>
-        <button
-          className="button button-primary"
-          onClick={() => navigate(`/admin/settings/${scoreboard.id}`)}
-        >
+        </button> */}
+        {/* <button className="button button-primary" onClick={() => navigate(`/admin/settings/${scoreboard.id}`)}>
           설정 탭 이동
-        </button>
+        </button> */}
       </div>
     </div>
   );
 };
 
 export default ScoreManagementPage;
-

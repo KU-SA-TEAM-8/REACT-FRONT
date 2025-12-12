@@ -1,197 +1,194 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useScoreboard } from "../contexts/ScoreboardContext";
-import { Participant } from "../types";
 import "../App.css";
+import { PatchScoreboardRequest, ResponseTeam } from "../types";
+
+interface TeamInput {
+  teamId?: string;
+  name: string;
+  initialScore: number;
+}
+
+export const PAGE_TYPE = {
+  CREATION: "Creation",
+  EDIT: "Edit",
+} as const;
+
+export type PageType = (typeof PAGE_TYPE)[keyof typeof PAGE_TYPE];
 
 const ScoreboardSettingsPage = () => {
   const { id } = useParams<{ id: string }>();
+  let pageType = null;
+  if (id === "new") {
+    pageType = PAGE_TYPE.CREATION;
+  } else {
+    pageType = PAGE_TYPE.EDIT;
+  }
   const navigate = useNavigate();
-  const {
-    scoreboards,
-    addScoreboard,
-    updateScoreboard,
-    startScoreboard,
-    stopScoreboard,
-    restartScoreboard,
-    addTeam,
-    deleteTeam,
-  } = useScoreboard();
+  const { fetchDetailScoreboard, addScoreboard, patchScoreboard, changeCompState } = useScoreboard();
 
-  const isNew = id === "new";
-  const existingScoreboard = !isNew ? scoreboards.find((sb) => sb.id === id) : null;
+  // 기본 입력값들
+  const [name, setName] = useState<string>("");
+  const [announcement, setAnnouncement] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>("");
+  const [state, setState] = useState<string>("");
 
-  const [name, setName] = useState(existingScoreboard?.name || "");
-  const [notice, setNotice] = useState(existingScoreboard?.notice || "");
-  const [duration, setDuration] = useState(existingScoreboard?.duration || 3600); // 기본 1시간
-  const [startTime, setStartTime] = useState<string>(
-    existingScoreboard?.startTime
-      ? new Date(existingScoreboard.startTime).toISOString().slice(0, 16)
-      : new Date().toISOString().slice(0, 16)
-  );
-  const [participants, setParticipants] = useState<Participant[]>(
-    existingScoreboard?.participants || []
-  );
-  const [customUrl, setCustomUrl] = useState(existingScoreboard?.customUrl || "");
-  const [newParticipantName, setNewParticipantName] = useState("");
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState("");
+  // totalTime 을 초 단위로 관리
+  const [durationSeconds, setDuration] = useState<number>(0);
 
-  const generateId = () => Math.random().toString(36).substring(2, 15);
+  const durationHours = Math.floor(durationSeconds / 3600);
+  const durationMinutes = Math.floor((durationSeconds % 3600) / 60);
 
-  const handleAddParticipant = async () => {
-    if (!newParticipantName.trim()) return;
+  // 팀 리스트
+  const [teams, setTeams] = useState<TeamInput[]>([]);
 
-    if (isNew) {
-      // 새 대회인 경우 로컬에만 추가
-      const newParticipant: Participant = {
-        id: generateId(),
-        name: newParticipantName.trim(),
-        score: 0,
-        history: [],
-      };
-      setParticipants([...participants, newParticipant]);
-      setNewParticipantName("");
-    } else {
-      // 기존 대회인 경우 API 호출
-      try {
-        await addTeam(id!, newParticipantName.trim());
-        const newParticipant: Participant = {
-          id: generateId(),
-          name: newParticipantName.trim(),
-          score: 0,
-          history: [],
+  const [newTeamName, setNewTeamName] = useState<string>("");
+  const [newTeamScore, setNewTeamScore] = useState<number>(0);
+
+  // 선택 옵션
+  const [isPublic, setIsPublic] = useState<boolean>(true);
+  const [isExternal, setIsExternal] = useState<boolean>(true);
+
+  // 선택적 URL
+  const [customUrl, setCustomUrl] = useState<string>("");
+
+  const toLocalDatetimeValue = (isoString: string) => {
+    const date = new Date(isoString);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const toISOStringFromLocal = (localDatetime: string) => {
+    // localDatetime 예: "2025-12-14T12:30"
+    const date = new Date(localDatetime);
+
+    // Date 객체는 자동으로 로컬 → UTC 고려한 ISO 문자열을 생성함
+    return date.toISOString();
+  };
+
+  const fetchData = async (id: string) => {
+    const data = await fetchDetailScoreboard(id);
+    if (data) {
+      const teams = data.teams.map((team) => {
+        return {
+          teamId: team.teamId,
+          name: team.name,
+          initialScore: 0,
         };
-        setParticipants([...participants, newParticipant]);
-        setNewParticipantName("");
-      } catch (error) {
-        alert("팀 추가에 실패했습니다.");
-      }
+      });
+      setName(data.name);
+      setAnnouncement(data.announcement);
+      setDescription(data.description);
+      setStartTime(toLocalDatetimeValue(data.startTime));
+      setTeams(teams);
+      setState(data.state);
     }
   };
 
-  const handleRemoveParticipant = async (participantId: string) => {
-    if (isNew) {
-      // 새 대회인 경우 로컬에서만 삭제
-      setParticipants(participants.filter((p) => p.id !== participantId));
-    } else {
-      // 기존 대회인 경우 API 호출
-      try {
-        await deleteTeam(id!, participantId);
-        setParticipants(participants.filter((p) => p.id !== participantId));
-      } catch (error) {
-        alert("팀 삭제에 실패했습니다.");
-      }
+  useEffect(() => {
+    if (pageType === PAGE_TYPE.EDIT && id) {
+      fetchData(id);
     }
+  }, [id, pageType]);
+  // ─────────────────────────────────────────────
+  // 팀 추가
+  // ─────────────────────────────────────────────
+  const handleAddTeam = () => {
+    if (!newTeamName.trim()) return;
+
+    setTeams((prev) => [...prev, { name: newTeamName, initialScore: newTeamScore }]);
+
+    setNewTeamName("");
+    setNewTeamScore(0);
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      alert("점수판 이름을 입력해주세요.");
-      return;
-    }
-    if (participants.length === 0) {
-      alert("최소 1명의 참여자를 추가해주세요.");
-      return;
-    }
+    const payload = {
+      name,
+      announcement,
+      description,
+      startTime: new Date(startTime).toISOString(),
+      totalTime: durationSeconds,
+      isPublic,
+      isExternal,
+      team: teams.map((t) => ({
+        name: t.name,
+        initialScore: t.initialScore,
+      })),
+      customUrl: customUrl ? customUrl : undefined,
+    };
+
+    const patchPayload = {
+      name,
+      announcement,
+      description,
+      startTime: new Date(startTime).toISOString(),
+      totalTime: durationSeconds,
+      teams: teams.map((t) => ({
+        teamId: t.teamId,
+        name: t.name,
+        initialScore: t.initialScore,
+      })),
+    };
 
     try {
-      if (isNew) {
-        const adminId = generateId();
-        // startTime을 timestamp로 변환
-        const startTimeTimestamp = startTime ? new Date(startTime).getTime() : Date.now();
-
-        const scoreboardId = await addScoreboard({
-          name: name.trim(),
-          adminId,
-          notice: notice.trim(),
-          duration,
-          startTime: startTimeTimestamp,
-          isRunning: false,
-          participants,
-          customUrl: customUrl.trim() || undefined,
-        });
-
-        // 대회 생성 후 팀들도 등록
-        for (const participant of participants) {
-          try {
-            await addTeam(scoreboardId, participant.name);
-          } catch (error) {
-            console.error(`팀 ${participant.name} 등록 실패:`, error);
-          }
-        }
-
-        const viewerId = scoreboards.find((sb) => sb.id === scoreboardId)?.viewerId || "";
-        const link = `${window.location.origin}/scoreboard/${viewerId}`;
-        setGeneratedLink(link);
-        setShowLinkModal(true);
+      if (pageType === PAGE_TYPE.CREATION) {
+        await addScoreboard(payload);
       } else {
-        // startTime을 timestamp로 변환
-        const startTimeTimestamp = startTime ? new Date(startTime).getTime() : Date.now();
-
-        await updateScoreboard(id!, {
-          name: name.trim(),
-          notice: notice.trim(),
-          duration,
-          startTime: startTimeTimestamp,
-          participants,
-          customUrl: customUrl.trim() || undefined,
-        });
-        alert("설정이 저장되었습니다.");
+        if (id) {
+          await patchScoreboard(id, patchPayload as PatchScoreboardRequest);
+        }
       }
-    } catch (error) {
-      console.error("저장 오류:", error);
-      alert("저장 중 오류가 발생했습니다.");
+      navigate("/admin");
+    } catch (err) {
+      console.error("대회 생성 실패");
+    }
+
+    // TODO: API 호출 필요 시 여기에서 POST/PUT 요청
+  };
+
+  const handleStart = async (id: string) => {
+    const response = await changeCompState(id, "start");
+    if (response) {
+      alert("상태가 변경되었습니다");
+      await fetchData(id);
     }
   };
-
-  const handleStart = async () => {
-    if (!id || id === "new") return;
-    try {
-      await startScoreboard(id);
-      alert("대회가 시작되었습니다.");
-    } catch (error) {
-      console.error("대회 시작 오류:", error);
-      alert("대회 시작 중 오류가 발생했습니다.");
+  const handlePause = async (id: string) => {
+    const response = await changeCompState(id, "pause");
+    if (response) {
+      alert("상태가 변경되었습니다");
+      await fetchData(id);
     }
   };
-
-  const handleStop = async () => {
-    if (!id || id === "new") return;
-    try {
-      await stopScoreboard(id);
-      alert("대회가 중지되었습니다.");
-    } catch (error) {
-      console.error("대회 중지 오류:", error);
-      alert("대회 중지 중 오류가 발생했습니다.");
+  const handleResume = async (id: string) => {
+    const response = await changeCompState(id, "resume");
+    if (response) {
+      alert("상태가 변경되었습니다");
+      await fetchData(id);
     }
   };
-
-  const handleRestart = async () => {
-    if (!id || id === "new") return;
-    if (confirm("대회를 재시작하시겠습니까? 모든 점수와 히스토리가 초기화됩니다.")) {
-      try {
-        await restartScoreboard(id, "reset");
-        alert("대회가 재시작되었습니다.");
-      } catch (error) {
-        console.error("대회 재시작 오류:", error);
-        alert("대회 재시작 중 오류가 발생했습니다.");
-      }
+  const handleClose = async (id: string) => {
+    const response = await changeCompState(id, "close");
+    if (response) {
+      alert("상태가 변경되었습니다");
+      await fetchData(id);
     }
   };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(generatedLink);
-    alert("링크가 클립보드에 복사되었습니다.");
-  };
-
-  const durationHours = Math.floor(duration / 3600);
-  const durationMinutes = Math.floor((duration % 3600) / 60);
 
   return (
     <div className="container">
       <h1 className="page-title">점수판 설정</h1>
 
+      {/* 점수판 이름 */}
       <div className="form-group">
         <label className="form-label">점수판 이름</label>
         <input
@@ -203,18 +200,33 @@ const ScoreboardSettingsPage = () => {
         />
       </div>
 
+      {/* 공지사항 */}
       <div className="form-group">
         <label className="form-label">운영자 공지사항</label>
         <textarea
           className="input"
-          value={notice}
-          onChange={(e) => setNotice(e.target.value)}
+          value={announcement}
+          onChange={(e) => setAnnouncement(e.target.value)}
           placeholder="공지사항을 입력하세요"
           rows={4}
           style={{ resize: "vertical" }}
         />
       </div>
 
+      {/* 설명 */}
+      <div className="form-group">
+        <label className="form-label">대회 설명</label>
+        <textarea
+          className="input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="대회 설명을 입력하세요"
+          rows={3}
+          style={{ resize: "vertical" }}
+        />
+      </div>
+
+      {/* 시작 시간 */}
       <div className="form-group">
         <label className="form-label">대회 시작 시간</label>
         <input
@@ -225,6 +237,7 @@ const ScoreboardSettingsPage = () => {
         />
       </div>
 
+      {/* 경기 시간 */}
       <div className="form-group">
         <label className="form-label">경기 시간 (시간:분)</label>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -232,56 +245,108 @@ const ScoreboardSettingsPage = () => {
             type="number"
             className="input"
             value={durationHours}
-            onChange={(e) => {
-              const hours = parseInt(e.target.value) || 0;
-              const minutes = durationMinutes;
-              setDuration(hours * 3600 + minutes * 60);
-            }}
             min="0"
+            onChange={(e) => {
+              const hours = Number(e.target.value) || 0;
+              setDuration(hours * 3600 + durationMinutes * 60);
+            }}
             style={{ width: "100px" }}
           />
           <span>시간</span>
+
           <input
             type="number"
             className="input"
             value={durationMinutes}
-            onChange={(e) => {
-              const hours = durationHours;
-              const minutes = parseInt(e.target.value) || 0;
-              setDuration(hours * 3600 + minutes * 60);
-            }}
             min="0"
             max="59"
+            onChange={(e) => {
+              const minutes = Number(e.target.value) || 0;
+              setDuration(durationHours * 3600 + minutes * 60);
+            }}
             style={{ width: "100px" }}
           />
           <span>분</span>
         </div>
       </div>
 
+      {/* 팀 목록 */}
       <div className="form-group">
-        <label className="form-label">참여자 목록</label>
-        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+        <label className="form-label">팀 목록</label>
+
+        <div style={{ display: "flex", gap: "10px", marginBottom: "10px", flexWrap: "wrap" }}>
           <input
             type="text"
             className="input"
-            value={newParticipantName}
-            onChange={(e) => setNewParticipantName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                handleAddParticipant();
-              }
-            }}
-            placeholder="참여자 이름"
-            style={{ flex: 1 }}
+            value={newTeamName}
+            onChange={(e) => setNewTeamName(e.target.value)}
+            placeholder="팀 이름"
+            style={{ flex: 1, minWidth: "180px" }}
           />
-          <button type="button" className="button button-primary" onClick={handleAddParticipant}>
+
+          <input
+            type="number"
+            className="input"
+            value={newTeamScore}
+            onChange={(e) => setNewTeamScore(Number(e.target.value))}
+            placeholder="초기 점수"
+            style={{ width: "140px" }}
+          />
+
+          <button type="button" className="button button-primary" onClick={handleAddTeam}>
             추가
           </button>
         </div>
+
+        <div
+          className="form-group"
+          style={{ display: "flex", flexDirection: "column", justifyContent: "start", gap: "10px" }}
+        >
+          <label className="form-label">대회 상태</label>
+          <div>
+            <span
+              style={{ borderRadius: "10px", backgroundColor: "blue", color: "white", width: "auto", padding: "5px" }}
+            >
+              {state}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="button button-secondary"
+              onClick={() => handleStart(id!)}
+              style={{ padding: "4px 12px", fontSize: "0.9rem" }}
+            >
+              시작
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={() => handlePause(id!)}
+              style={{ padding: "4px 12px", fontSize: "0.9rem" }}
+            >
+              일시정지
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={() => handleResume(id!)}
+              style={{ padding: "4px 12px", fontSize: "0.9rem" }}
+            >
+              재시작
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={() => handleClose(id!)}
+              style={{ padding: "4px 12px", fontSize: "0.9rem" }}
+            >
+              중단
+            </button>
+          </div>
+        </div>
+
         <div>
-          {participants.map((participant) => (
+          {teams.map((team, idx) => (
             <div
-              key={participant.id}
+              key={idx}
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -290,21 +355,21 @@ const ScoreboardSettingsPage = () => {
                 marginBottom: "8px",
                 background: "#f9f9f9",
                 borderRadius: "6px",
+                gap: "8px",
               }}
             >
-              <span>{participant.name}</span>
-              <button
-                className="button button-danger"
-                onClick={() => handleRemoveParticipant(participant.id)}
-                style={{ padding: "4px 12px", fontSize: "0.9rem" }}
-              >
-                삭제
-              </button>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span>{team.name}</span>
+                {pageType === PAGE_TYPE.CREATION && (
+                  <span style={{ fontSize: "0.85rem", color: "#555" }}>초기 점수: {team.initialScore}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* optional URL */}
       <div className="form-group">
         <label className="form-label">커스텀 점수판 URL (선택사항)</label>
         <input
@@ -316,62 +381,15 @@ const ScoreboardSettingsPage = () => {
         />
       </div>
 
-      {!isNew && (
-        <div style={{ marginBottom: "20px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button className="button button-primary" onClick={handleStart}>
-            대회 시작
-          </button>
-          <button className="button button-danger" onClick={handleStop}>
-            대회 중지
-          </button>
-          <button className="button button-secondary" onClick={handleRestart}>
-            대회 재시작
-          </button>
-        </div>
-      )}
-
+      {/* 저장 버튼 */}
       <div className="button-group">
         <button className="button button-primary" onClick={handleSave}>
-          {isNew ? "등록" : "저장"}
+          {pageType === PAGE_TYPE.CREATION ? "등록" : "저장"}
         </button>
         <button className="button button-secondary" onClick={() => navigate("/admin")}>
           취소
         </button>
       </div>
-
-      {showLinkModal && (
-        <div className="modal" onClick={() => setShowLinkModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">점수판이 생성되었습니다!</h2>
-            <div className="form-group">
-              <label className="form-label">점수판 링크:</label>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <input
-                  type="text"
-                  className="input"
-                  value={generatedLink}
-                  readOnly
-                  style={{ flex: 1 }}
-                />
-                <button className="button button-primary" onClick={copyLink}>
-                  복사
-                </button>
-              </div>
-            </div>
-            <div className="button-group">
-              <button
-                className="button button-primary"
-                onClick={() => {
-                  setShowLinkModal(false);
-                  navigate("/admin");
-                }}
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

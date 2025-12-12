@@ -1,13 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ScoreboardProvider } from './contexts/ScoreboardContext';
-import ScoreboardListPage from './pages/ScoreboardListPage';
-import LoginPage from './pages/LoginPage';
-import AdminHomePage from './pages/AdminHomePage';
-import ScoreManagementPage from './pages/ScoreManagementPage';
-import ScoreboardSettingsPage from './pages/ScoreboardSettingsPage';
-import ScoreboardDetailPage from './pages/ScoreboardDetailPage';
-import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ScoreboardProvider } from "./contexts/ScoreboardContext";
+import ScoreboardListPage from "./pages/ScoreboardListPage";
+import LoginPage from "./pages/LoginPage";
+import AdminHomePage from "./pages/AdminHomePage";
+import ScoreManagementPage from "./pages/ScoreManagementPage";
+import ScoreboardSettingsPage, { PAGE_TYPE } from "./pages/ScoreboardSettingsPage";
+import ScoreboardDetailPage from "./pages/ScoreboardDetailPage";
+import "./App.css";
 
 function App() {
   return (
@@ -30,4 +30,3 @@ function App() {
 }
 
 export default App;
-

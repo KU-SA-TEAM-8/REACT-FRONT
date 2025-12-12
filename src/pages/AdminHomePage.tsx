@@ -1,41 +1,48 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useScoreboard } from '../contexts/ScoreboardContext';
-import '../App.css';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { useScoreboard } from "../contexts/ScoreboardContext";
+import "../App.css";
+import { CompetitionItem } from "../types";
 
 const AdminHomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
-  const { scoreboards } = useScoreboard();
+  const { fetchScoreboards } = useScoreboard();
   const [showAdminIdModal, setShowAdminIdModal] = useState(false);
-  const [adminIdInput, setAdminIdInput] = useState('');
+  const [adminIdInput, setAdminIdInput] = useState("");
+  const [competitionList, setCompetitionList] = useState<CompetitionItem[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate("/login");
     }
-  }, [isAuthenticated, navigate]);
+
+    const fetchCompetitions = async () => {
+      const data = await fetchScoreboards();
+      setCompetitionList(data);
+    };
+    fetchCompetitions();
+  }, [isAuthenticated]);
 
   const handleCreateClick = () => {
-    navigate('/admin/settings/new');
+    navigate("/admin/settings/create");
   };
 
-  const handleManageClick = (adminId: string) => {
-    navigate(`/admin/score/${adminId}`);
+  const handleManageClick = (publicId: string, compId: string, name: string) => {
+    navigate(`/admin/score/${publicId}`, {
+      state: {
+        publicId: publicId,
+        compId: compId,
+        name: name,
+      },
+    });
   };
 
   const handleAdminIdManage = () => {
-    if (adminIdInput.trim()) {
-      const scoreboard = scoreboards.find((sb) => sb.adminId === adminIdInput.trim());
-      if (scoreboard) {
-        navigate(`/admin/score/${adminIdInput.trim()}`);
-        setShowAdminIdModal(false);
-        setAdminIdInput('');
-      } else {
-        alert('해당 관리 ID를 가진 점수판을 찾을 수 없습니다.');
-      }
-    }
+    navigate(`/admin/score/${adminIdInput.trim()}`);
+    setShowAdminIdModal(false);
+    setAdminIdInput("");
   };
 
   if (!isAuthenticated) {
@@ -44,45 +51,69 @@ const AdminHomePage = () => {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>관리자 화면</h1>
-        <button className="button button-secondary" onClick={logout} style={{ padding: '8px 16px' }}>
-          로그아웃
-        </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
+        <h1 className="page-title" style={{ margin: 0 }}>
+          관리자 화면
+        </h1>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            className="button button-secondary"
+            onClick={() => {
+              navigate("/");
+            }}
+            style={{ padding: "8px 16px" }}
+          >
+            점수판 리스트로
+          </button>
+          <button className="button button-secondary" onClick={logout} style={{ padding: "8px 16px" }}>
+            로그아웃
+          </button>
+        </div>
       </div>
 
-      <div style={{ marginBottom: '30px' }}>
-        {scoreboards.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-            등록된 점수판이 없습니다.
-          </div>
+      <div style={{ marginBottom: "30px" }}>
+        {competitionList?.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>등록된 점수판이 없습니다.</div>
         ) : (
-          scoreboards.map((scoreboard) => (
-            <div key={scoreboard.id} className="card" style={{ cursor: 'default' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          competitionList?.map((competition) => (
+            <div key={competition.competitionId} className="card" style={{ cursor: "default" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <h3 style={{ marginBottom: '8px', color: '#333' }}>{scoreboard.name}</h3>
-                  <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                    관리 ID: {scoreboard.adminId}
-                  </div>
+                  <h3 style={{ marginBottom: "8px", color: "#333" }}>{competition.competitionName}</h3>
+                  <div style={{ color: "#666", fontSize: "0.9rem" }}>관리 ID: {competition.manageBoardPublicId}</div>
                 </div>
-                <button
-                  className="button button-secondary"
-                  onClick={() => handleManageClick(scoreboard.adminId)}
-                  style={{ padding: '8px 16px' }}
-                >
-                  관리
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() =>
+                      handleManageClick(
+                        competition.manageBoardPublicId,
+                        competition.competitionId,
+                        competition.competitionName
+                      )
+                    }
+                    style={{ padding: "8px 16px" }}
+                  >
+                    점수 관리
+                  </button>
+                  <button
+                    className="button button-primary"
+                    onClick={() => navigate(`/admin/settings/${competition.competitionId}`)}
+                    style={{ padding: "8px 16px" }}
+                  >
+                    수정
+                  </button>
+                </div>
               </div>
             </div>
           ))
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="button button-secondary" onClick={() => setShowAdminIdModal(true)}>
+      <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+        {/* <button className="button button-secondary" onClick={() => setShowAdminIdModal(true)}>
           공유ID로 관리
-        </button>
+        </button> */}
         <button className="button button-primary" onClick={handleCreateClick}>
           점수판 생성
         </button>
@@ -101,7 +132,7 @@ const AdminHomePage = () => {
                 onChange={(e) => setAdminIdInput(e.target.value)}
                 placeholder="관리 ID를 입력하세요"
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     handleAdminIdManage();
                   }
                 }}
@@ -115,7 +146,7 @@ const AdminHomePage = () => {
                 className="button button-secondary"
                 onClick={() => {
                   setShowAdminIdModal(false);
-                  setAdminIdInput('');
+                  setAdminIdInput("");
                 }}
               >
                 취소
@@ -129,4 +160,3 @@ const AdminHomePage = () => {
 };
 
 export default AdminHomePage;
-
