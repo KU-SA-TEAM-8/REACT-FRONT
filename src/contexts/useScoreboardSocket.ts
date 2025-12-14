@@ -39,11 +39,14 @@ export type WsMessage =
   | { type: "COMPETITION_DATA_CHANGE"; payload: CompetitionDataChangePayload }
   | { type: "SCORE_UPDATE"; payload: ScoreUpdatePayload };
 
-export function useScoreboardSocket(onMessage: (msg: WsMessage) => void, options?: { viewerId?: string }) {
+export function useScoreboardSocket(
+  onMessage: (msg: WsMessage) => void,
+  options?: { viewerId?: string }
+) {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const url = "ws://ec2-3-36-100-116.ap-northeast-2.compute.amazonaws.com:8081/ws/scoreboard";
+    const url = "wss://familylink.click/ws/scoreboard";
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
