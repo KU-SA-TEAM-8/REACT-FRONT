@@ -13,7 +13,7 @@ function App() {
   return (
     <AuthProvider>
       <ScoreboardProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/REACT-FRONT">
           <Routes>
             <Route path="/" element={<ScoreboardListPage />} />
             <Route path="/login" element={<LoginPage />} />
