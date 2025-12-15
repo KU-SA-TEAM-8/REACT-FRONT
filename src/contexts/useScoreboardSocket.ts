@@ -37,16 +37,14 @@ export interface ScoreUpdatePayload {
 
 export type WsMessage =
   | { type: "COMPETITION_DATA_CHANGE"; payload: CompetitionDataChangePayload }
-  | { type: "SCORE_UPDATE"; payload: ScoreUpdatePayload };
+  | { type: "SCORE_UPDATE"; payload: ScoreUpdatePayload }
+  | { type: "HEARTBEAT" };
 
-export function useScoreboardSocket(
-  onMessage: (msg: WsMessage) => void,
-  options?: { viewerId?: string }
-) {
+export function useScoreboardSocket(onMessage: (msg: WsMessage) => void, options?: { viewerId?: string }) {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const url = "wss://familylink.click/ws/scoreboard";
+    const url = `wss://familylink.click/ws/scoreboard/${options?.viewerId}`;
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
@@ -61,6 +59,12 @@ export function useScoreboardSocket(
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
+        if (data.type === "HEARTBEAT") {
+          console.log("[WS] HEARTBEAT received → request data again");
+          return;
+        }
+
         onMessage(data);
       } catch (err) {
         console.error("[WS] Invalid message:", err);
