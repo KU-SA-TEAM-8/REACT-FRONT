@@ -1,4 +1,3 @@
-// src/hooks/useScoreboardSocket.ts
 import { useEffect, useRef } from "react";
 
 export interface Team {
