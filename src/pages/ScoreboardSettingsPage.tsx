@@ -20,7 +20,7 @@ export type PageType = (typeof PAGE_TYPE)[keyof typeof PAGE_TYPE];
 const ScoreboardSettingsPage = () => {
   const { id } = useParams<{ id: string }>();
   let pageType = null;
-  if (id === "new") {
+  if (!id) {
     pageType = PAGE_TYPE.CREATION;
   } else {
     pageType = PAGE_TYPE.EDIT;
