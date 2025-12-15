@@ -19,12 +19,7 @@ export type PageType = (typeof PAGE_TYPE)[keyof typeof PAGE_TYPE];
 
 const ScoreboardSettingsPage = () => {
   const { id } = useParams<{ id: string }>();
-  let pageType = null;
-  if (!id) {
-    pageType = PAGE_TYPE.CREATION;
-  } else {
-    pageType = PAGE_TYPE.EDIT;
-  }
+  const pageType = id === "create" ? PAGE_TYPE.CREATION : PAGE_TYPE.EDIT;
   const navigate = useNavigate();
   const { fetchDetailScoreboard, addScoreboard, patchScoreboard, changeCompState } = useScoreboard();
 
