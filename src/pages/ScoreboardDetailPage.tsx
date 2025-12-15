@@ -76,7 +76,7 @@ const ScoreboardDetailPage = () => {
 
       case "SCORE_UPDATE":
         setTeams(msg.payload.teams);
-        setHistories((prev) => [...prev, ...msg.payload.scoreHistories.map(toChangeLog)]);
+        setHistories(msg.payload.scoreHistories.map(toChangeLog));
         break;
     }
   }, []);
