@@ -23,6 +23,10 @@ const ScoreboardSettingsPage = () => {
   const navigate = useNavigate();
   const { fetchDetailScoreboard, addScoreboard, patchScoreboard, changeCompState } = useScoreboard();
 
+  useEffect(() => {
+    console.log(pageType);
+  }, [pageType]);
+
   // 기본 입력값들
   const [name, setName] = useState<string>("");
   const [announcement, setAnnouncement] = useState<string>("");
