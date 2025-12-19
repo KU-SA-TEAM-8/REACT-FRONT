@@ -23,7 +23,7 @@ const ScoreboardDetailPage = () => {
     changedAt: h.changedAt,
   });
 
-  // ✅ 1) 첫 로딩: REST로 점수판 + 히스토리 불러오기
+  // 1) 첫 로딩: REST로 점수판 + 히스토리 불러오기
   useEffect(() => {
     if (!id) return;
 
@@ -65,7 +65,7 @@ const ScoreboardDetailPage = () => {
     };
   }, [id]);
 
-  // ✅ 2) 이후: WebSocket으로 들어오는 변경 반영
+  // 2) 이후: WebSocket으로 들어오는 변경 반영
   const handleWsMessage = useCallback((msg: WsMessage) => {
     switch (msg.type) {
       case "COMPETITION_DATA_CHANGE":
@@ -76,14 +76,14 @@ const ScoreboardDetailPage = () => {
 
       case "SCORE_UPDATE":
         setTeams(msg.payload.teams);
-        setHistories((prev) => [...prev, ...msg.payload.scoreHistories.map(toChangeLog)]);
+        setHistories(msg.payload.scoreHistories.map(toChangeLog));
         break;
     }
   }, []);
 
   useScoreboardSocket(handleWsMessage, { viewerId: id });
 
-  // ✅ 3) 초기 데이터도 못 받았으면 로딩 문구
+  // 3) 초기 데이터도 못 받았으면 로딩 문구
   if (!scoreBoard) {
     return (
       <div className="container">

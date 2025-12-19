@@ -19,14 +19,13 @@ export type PageType = (typeof PAGE_TYPE)[keyof typeof PAGE_TYPE];
 
 const ScoreboardSettingsPage = () => {
   const { id } = useParams<{ id: string }>();
-  let pageType = null;
-  if (id === "new") {
-    pageType = PAGE_TYPE.CREATION;
-  } else {
-    pageType = PAGE_TYPE.EDIT;
-  }
+  const pageType = id === "create" ? PAGE_TYPE.CREATION : PAGE_TYPE.EDIT;
   const navigate = useNavigate();
   const { fetchDetailScoreboard, addScoreboard, patchScoreboard, changeCompState } = useScoreboard();
+
+  useEffect(() => {
+    console.log(pageType);
+  }, [pageType]);
 
   // 기본 입력값들
   const [name, setName] = useState<string>("");
