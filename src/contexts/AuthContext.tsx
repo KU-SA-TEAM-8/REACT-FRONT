@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import axios from "axios";
-import { apiClient } from "../utils/apiClient";
+import { authService } from "../services/api";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  register: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,23 +42,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     password: string
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      const requestData = {
-        name: name.trim(),
-        email: email.trim(),
-        password: password,
-      };
+      const response = await authService.signUp(name.trim(), email.trim(), password);
 
-      const response = await apiClient.post("/auth/sign-up", requestData);
-
-      if (response.status === 200) {
+      if (response) {
         // LocalStorage에도 저장 (기존 로직 유지)
         const users = getUsers();
         const id = email.trim().toLowerCase().split("@")[0] + "_" + Date.now().toString().slice(-6);
         const newUser = {
           id,
-          name: response.data.name,
-          email: response.data.email,
-          password: response.data.password,
+          name: response.name ?? name,
+          email: response.email ?? email,
+          password: response.password ?? password,
           createdAt: Date.now(),
         };
         users.push(newUser);
@@ -66,38 +63,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return { success: false, message: "회원가입에 실패했습니다." };
     } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response) {
-        return {
-          success: false,
-          message: error.response.data?.error || "회원가입에 실패했습니다.",
-        };
-      }
-      return { success: false, message: "회원가입 중 오류가 발생했습니다." };
+      return {
+        success: false,
+        message: error?.response?.data?.error || "회원가입 중 오류가 발생했습니다.",
+      };
     }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await apiClient.post("/auth/sign-in", {
-        email: email.trim(),
-        password: password,
-      });
-
-      if (response.status === 200) {
-        setIsAuthenticated(true);
-        localStorage.setItem("isAuthenticated", "true");
-        if (response.data.jwtToken.accessToken) {
-          localStorage.setItem("accessToken", response.data.jwtToken.accessToken);
-        }
-        return true;
+      const response = await authService.signIn(email.trim(), password);
+      setIsAuthenticated(true);
+      localStorage.setItem("isAuthenticated", "true");
+      if (response?.jwtToken?.accessToken) {
+        localStorage.setItem("accessToken", response.jwtToken.accessToken);
       }
-
-      return false;
+      return true;
     } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response) {
-        // 에러 응답 처리
-        return false;
-      }
       return false;
     }
   };
@@ -108,5 +90,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem("accessToken");
   };
 
-  return <AuthContext.Provider value={{ isAuthenticated, login, logout, register }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, register }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

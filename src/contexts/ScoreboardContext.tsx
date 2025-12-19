@@ -10,14 +10,18 @@ import {
   CompetitionDetailResponse,
   ScoreChangeLog,
 } from "../types";
-import { apiClient } from "../utils/apiClient";
+import { scoreboardService, manageService } from "../services/api";
 
 interface ScoreboardContextType {
   fetchHistory: (id: string) => Promise<ScoreChangeLog[]>;
   fetchCompData: (id: string) => Promise<CompetitionDetailResponse>;
   changeCompState: (id: string, mode: string) => Promise<boolean>;
   addScoreboard: (data: ScoreboardRequest) => void;
-  fetchCompList: (size: number, cursorCreatedAt?: string, cursorId?: string) => Promise<ScoreboardListResponse>;
+  fetchCompList: (
+    size: number,
+    cursorCreatedAt?: string,
+    cursorId?: string
+  ) => Promise<ScoreboardListResponse>;
   fetchScoreboards: () => Promise<CompetitionItem[]>;
   patchScoreboard: (id: string, data: PatchScoreboardRequest) => Promise<boolean>;
   fetchDetailScoreboard: (id: string) => Promise<ScoreboardResponse | undefined>;
@@ -37,95 +41,48 @@ export const useScoreboard = () => {
 
 export const ScoreboardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const fetchScoreboards = async () => {
-    const response = await apiClient.get("/api/v1/manages/boards/list");
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.fetchScoreboards();
   };
 
   const changeCompState = async (id: string, mode: string) => {
-    const response = await apiClient.post(`/api/v1/competitions/${id}/actions?mode=${mode}`);
-    if (response.status === 200) {
-      return true;
-    } else {
-      return false;
-    }
+    return scoreboardService.changeCompState(id, mode);
   };
 
   const fetchDetailScoreboard = async (id: string) => {
-    const response = await apiClient.get(`/api/v1/competitions/${id}`);
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.fetchDetailScoreboard(id);
   };
 
   // 대회 생성 API 연동
   const addScoreboard = async (data: ScoreboardRequest) => {
-    const response = await apiClient.post("/api/v1/competitions", data);
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.addScoreboard(data);
   };
 
   const patchScoreboard = async (id: string, data: PatchScoreboardRequest) => {
-    const response = await apiClient.patch(`/api/v1/competitions/${id}`, data);
-    if (response.status === 200) {
-      return true;
-    } else {
-      return false;
-    }
+    return scoreboardService.patchScoreboard(id, data);
   };
 
   // **********점수 설정************/
   const fetchCompetition = async (publicId: string) => {
-    const response = await apiClient.get(`api/v1/manages/boards/${publicId}`);
-    if (response.status === 200) {
-      return response.data;
-    }
+    return manageService.fetchCompetition(publicId);
   };
 
   const patchScore = async (compId: string, teamId: string, data: ScorePatch) => {
-    const response = await apiClient.patch(
-      `/api/v1/manages/boards/competitions/${compId}/teams/${teamId}/scores`,
-      data
-    );
-    if (response.status === 200) {
-      return true;
-    } else {
-      return false;
-    }
+    return manageService.patchScore(compId, teamId, data);
   };
 
   /************************* */
 
   /*****public scoreboard */
   const fetchCompList = async (size: number, cursorCreatedAt?: string, cursorId?: string) => {
-    let response;
-    if (cursorCreatedAt && cursorId) {
-      response = await apiClient.get(
-        `api/v1/public/scoreboard/list?size=${size}&cursorCreatedAt=${cursorCreatedAt}&cursorId=${cursorId}`
-      );
-    } else {
-      response = await apiClient.get(`api/v1/public/scoreboard/list?size=${size}`);
-    }
-
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.fetchCompList(size, cursorCreatedAt, cursorId);
   };
 
   const fetchCompData = async (id: string) => {
-    const response = await apiClient.get(`api/v1/public/scoreboard/${id}`);
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.fetchCompData(id);
   };
 
   const fetchHistory = async (id: string) => {
-    const response = await apiClient.get(`api/v1/public/scoreboard/${id}/history`);
-    if (response.status === 200) {
-      return response.data;
-    }
+    return scoreboardService.fetchHistory(id);
   };
 
   return (
